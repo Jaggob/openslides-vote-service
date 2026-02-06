@@ -377,12 +377,12 @@ func ensureVoteUser(ctx context.Context, ds *dsfetch.Fetch, poll dsmodels.Poll, 
 		return fmt.Errorf("getting users_forbid_delegator_to_vote: %w", err)
 	}
 
-	delegation, err := ds.MeetingUser_VoteDelegatedToID(voteMeetingUserID).Value(ctx)
+	delegationIDs, err := ds.MeetingUser_VoteDelegatedToIDs(voteMeetingUserID).Value(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching delegation : %w", err)
 	}
 
-	if delegationActivated && forbitDelegateToVote && !delegation.Null() && voteUser == requestUser {
+	if delegationActivated && forbitDelegateToVote && len(delegationIDs) > 0 && voteUser == requestUser {
 		return MessageError(ErrNotAllowed, "You have delegated your vote and therefore can not vote for your self")
 	}
 
@@ -405,7 +405,14 @@ func ensureVoteUser(ctx context.Context, ds *dsfetch.Fetch, poll dsmodels.Poll, 
 		return MessageError(ErrNotAllowed, "You are not in the right meeting")
 	}
 
-	if id, ok := delegation.Value(); !ok || id != requestMeetingUserID {
+	allowed := false
+	for _, id := range delegationIDs {
+		if id == requestMeetingUserID {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
 		return MessageErrorf(ErrNotAllowed, "You can not vote for user %d", voteUser)
 	}
 
@@ -587,7 +594,7 @@ func preload(ctx context.Context, ds *dsfetch.Fetch, poll dsmodels.Poll) error {
 	var dummyBool bool
 	var dummyIntSlice []int
 	var dummyDecimal decimal.Decimal
-	var dummyManybeInt dsfetch.Maybe[int]
+	var dummyIntSlice2 []int
 	var dummyInt int
 	ds.Meeting_UsersEnableVoteWeight(poll.MeetingID).Lazy(&dummyBool)
 	ds.Meeting_UsersEnableVoteDelegations(poll.MeetingID).Lazy(&dummyBool)
@@ -612,7 +619,7 @@ func preload(ctx context.Context, ds *dsfetch.Fetch, poll dsmodels.Poll) error {
 			ds.MeetingUser_UserID(muID).Lazy(&uid)
 			ds.MeetingUser_GroupIDs(muID).Lazy(&dummyIntSlice)
 			ds.MeetingUser_VoteWeight(muID).Lazy(&dummyDecimal)
-			ds.MeetingUser_VoteDelegatedToID(muID).Lazy(&dummyManybeInt)
+			ds.MeetingUser_VoteDelegatedToIDs(muID).Lazy(&dummyIntSlice2)
 			ds.MeetingUser_MeetingID(muID).Lazy(&dummyInt)
 		}
 	}
@@ -627,13 +634,11 @@ func preload(ctx context.Context, ds *dsfetch.Fetch, poll dsmodels.Poll) error {
 		for _, muID := range muIDs {
 			// This does not send a db request, since the value was fetched in
 			// the block above.
-			mID, err := ds.MeetingUser_VoteDelegatedToID(muID).Value(ctx)
+			mIDs, err := ds.MeetingUser_VoteDelegatedToIDs(muID).Value(ctx)
 			if err != nil {
 				return fmt.Errorf("getting vote delegated to for meeting user %d: %w", muID, err)
 			}
-			if id, ok := mID.Value(); ok {
-				delegatedMeetingUserIDs = append(delegatedMeetingUserIDs, id)
-			}
+			delegatedMeetingUserIDs = append(delegatedMeetingUserIDs, mIDs...)
 		}
 	}
 
