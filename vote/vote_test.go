@@ -1402,7 +1402,30 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 			meeting_user:
 				41:
 					group_ids: [40]
-					vote_delegated_to_id: 31
+					vote_delegated_to_ids: [31]
+			`,
+			`{"meeting_user_id": 41, "value":"Yes"}`,
+
+			41,
+		},
+
+		{
+			"Vote for other with multiple delegations",
+			`
+			user:
+				30:
+					is_present_in_meeting_ids: [1]
+				50:
+					username: second-delegate
+
+			meeting_user:
+				41:
+					group_ids: [40]
+					vote_delegated_to_ids: [51, 31]
+				51:
+					user_id: 50
+					meeting_id: 1
+					group_ids: [41]
 			`,
 			`{"meeting_user_id": 41, "value":"Yes"}`,
 
@@ -1419,7 +1442,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 			meeting_user:
 				41:
 					group_ids: [40]
-					vote_delegated_to_id: 31
+					vote_delegated_to_ids: [31]
 			`,
 			`{"meeting_user_id": 41, "value":"Yes"}`,
 
@@ -1434,7 +1457,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 
 			meeting_user:
 				41:
-					vote_delegated_to_id: 31
+					vote_delegated_to_ids: [31]
 			`,
 			`{"meeting_user_id": 41, "value":"Yes"}`,
 
@@ -1450,7 +1473,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 
 			meeting_user/31:
 				group_ids: [40]
-				vote_delegated_to_id: 41
+				vote_delegated_to_ids: [41]
 			`,
 			`{"meeting_user_id": 31, "value":"Yes"}`,
 
@@ -1466,7 +1489,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 
 			meeting_user/31:
 				group_ids: [40]
-				vote_delegated_to_id: 41
+				vote_delegated_to_ids: [41]
 			`,
 			`{"meeting_user_id": 31, "value":"Yes"}`,
 
@@ -1485,7 +1508,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 
 			meeting_user/31:
 				group_ids: [40]
-				vote_delegated_to_id: 41
+				vote_delegated_to_ids: [41]
 			`,
 			`{"meeting_user_id": 31, "value":"Yes"}`,
 
