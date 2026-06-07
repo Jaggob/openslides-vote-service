@@ -555,7 +555,7 @@ func TestVoteNoRequests(t *testing.T) {
 					meeting_id: 50
 				20:
 					meeting_id: 50
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 					group_ids: [5]
 					user_id: 2
 
@@ -635,7 +635,7 @@ func TestVoteNoRequests(t *testing.T) {
 					group_ids: [5]
 					meeting_id: 50
 					user_id: 2
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 
 			group/5/meeting_user_ids: [20]
 			`,
@@ -934,7 +934,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 				20:
 					group_ids: [1]
 					meeting_id: 1
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 			`,
 			`{"user_id": 2, "value":"Y"}`,
 
@@ -974,7 +974,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 				20:
 					group_ids: [1]
 					meeting_id: 1
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 			`,
 			`{"user_id": 2, "value":"Y"}`,
 
@@ -1014,7 +1014,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 				20:
 					group_ids: []
 					meeting_id: 1
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 			`,
 			`{"user_id": 2, "value":"Y"}`,
 
@@ -1054,7 +1054,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 				20:
 					group_ids: [1]
 					meeting_id: 1
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 			`,
 			`{"user_id": 2, "value":"Y"}`,
 
@@ -1093,7 +1093,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 					meeting_id: 1
 					user_id: 1
 					group_ids: [1]
-					vote_delegated_to_id: 20
+					vote_delegated_to_ids: [20]
 
 				20:
 					meeting_id: 1
@@ -1136,7 +1136,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 					meeting_id: 1
 					user_id: 1
 					group_ids: [1]
-					vote_delegated_to_id: 20
+					vote_delegated_to_ids: [20]
 
 				20:
 					meeting_id: 1
@@ -1178,7 +1178,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 					meeting_id: 1
 					user_id: 1
 					group_ids: [1]
-					vote_delegated_to_id: 20
+					vote_delegated_to_ids: [20]
 
 				20:
 					meeting_id: 1
