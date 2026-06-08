@@ -555,7 +555,7 @@ func TestVoteNoRequests(t *testing.T) {
 					meeting_id: 50
 				20:
 					meeting_id: 50
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 					group_ids: [5]
 					user_id: 2
 
@@ -635,7 +635,7 @@ func TestVoteNoRequests(t *testing.T) {
 					group_ids: [5]
 					meeting_id: 50
 					user_id: 2
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 
 			group/5/meeting_user_ids: [20]
 			`,
@@ -934,7 +934,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 				20:
 					group_ids: [1]
 					meeting_id: 1
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 			`,
 			`{"user_id": 2, "value":"Y"}`,
 
@@ -974,7 +974,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 				20:
 					group_ids: [1]
 					meeting_id: 1
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 			`,
 			`{"user_id": 2, "value":"Y"}`,
 
@@ -1014,7 +1014,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 				20:
 					group_ids: []
 					meeting_id: 1
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 			`,
 			`{"user_id": 2, "value":"Y"}`,
 
@@ -1054,7 +1054,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 				20:
 					group_ids: [1]
 					meeting_id: 1
-					vote_delegated_to_id: 10
+					vote_delegated_to_ids: [10]
 			`,
 			`{"user_id": 2, "value":"Y"}`,
 
@@ -1093,7 +1093,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 					meeting_id: 1
 					user_id: 1
 					group_ids: [1]
-					vote_delegated_to_id: 20
+					vote_delegated_to_ids: [20]
 
 				20:
 					meeting_id: 1
@@ -1136,7 +1136,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 					meeting_id: 1
 					user_id: 1
 					group_ids: [1]
-					vote_delegated_to_id: 20
+					vote_delegated_to_ids: [20]
 
 				20:
 					meeting_id: 1
@@ -1178,7 +1178,7 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 					meeting_id: 1
 					user_id: 1
 					group_ids: [1]
-					vote_delegated_to_id: 20
+					vote_delegated_to_ids: [20]
 
 				20:
 					meeting_id: 1
@@ -1215,6 +1215,77 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 				t.Fatalf("Expected NotAllowedError, got: %v", err)
 			}
 		})
+	}
+}
+
+func TestVoteMultipleDelegations(t *testing.T) {
+	ctx := context.Background()
+	backend := memory.New()
+	ds := &StubGetter{data: dsmock.YAMLData(`
+	poll/1:
+		meeting_id: 1
+		entitled_group_ids: [1]
+		pollmethod: Y
+		global_yes: true
+		backend: fast
+		type: pseudoanonymous
+		content_object_id: some_field/1
+		sequential_number: 1
+		onehundred_percent_base: base
+		title: myPoll
+
+	meeting/1/users_enable_vote_delegations: true
+
+	user:
+		1:
+			is_present_in_meeting_ids: [1]
+			meeting_user_ids: [10]
+		2:
+			meeting_user_ids: [20]
+		3:
+			meeting_user_ids: [30]
+		4:
+			meeting_user_ids: [40]
+
+	meeting_user:
+		10:
+			meeting_id: 1
+			user_id: 1
+		20:
+			group_ids: [1]
+			meeting_id: 1
+			user_id: 2
+			vote_delegated_to_ids: [10]
+		30:
+			group_ids: [1]
+			meeting_id: 1
+			user_id: 3
+			vote_delegated_to_ids: [10]
+		40:
+			group_ids: [1]
+			meeting_id: 1
+			user_id: 4
+	`)}
+
+	v, _, _ := vote.New(ctx, backend, backend, ds, true)
+
+	if err := backend.Start(ctx, 1); err != nil {
+		t.Fatalf("backend.Start(): %v", err)
+	}
+
+	if err := v.Vote(ctx, 1, 1, strings.NewReader(`{"user_id":2,"value":"Y"}`)); err != nil {
+		t.Fatalf("Vote for first delegated user returned unexpected error: %v", err)
+	}
+	backend.AssertUserHasVoted(t, 1, 2)
+
+	if err := v.Vote(ctx, 1, 1, strings.NewReader(`{"user_id":3,"value":"Y"}`)); err != nil {
+		t.Fatalf("Vote for second delegated user returned unexpected error: %v", err)
+	}
+	backend.AssertUserHasVoted(t, 1, 3)
+
+	err := v.Vote(ctx, 1, 1, strings.NewReader(`{"user_id":4,"value":"Y"}`))
+	if !errors.Is(err, vote.ErrNotAllowed) {
+		t.Fatalf("Expected NotAllowedError for non-delegated user, got: %v", err)
 	}
 }
 
