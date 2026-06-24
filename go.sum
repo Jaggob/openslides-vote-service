@@ -1,5 +1,5 @@
-github.com/Jaggob/openslides-go v0.0.0-20260613111505-bd9afef24710 h1:5lcNGGH5viI1+b1DN4w9OmykKALDhaVaagioGmi0WkM=
-github.com/Jaggob/openslides-go v0.0.0-20260613111505-bd9afef24710/go.mod h1:qkICl8CAXzm2txb2Y+rdWc9TEWt28gRoqsdXFrnVh/8=
+github.com/Jaggob/openslides-go v0.0.0-20260624153959-4801301d6377 h1:RdnzJ4xz+n/2onvgbi4Y6j28tWeyOHXleI5t0YFcgFo=
+github.com/Jaggob/openslides-go v0.0.0-20260624153959-4801301d6377/go.mod h1:qkICl8CAXzm2txb2Y+rdWc9TEWt28gRoqsdXFrnVh/8=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/alecthomas/assert/v2 v2.11.0 h1:2Q9r3ki8+JYXvGsDyBXwH3LcJ+WK5D0gc5E8vS6K3D0=
