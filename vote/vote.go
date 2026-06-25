@@ -970,6 +970,14 @@ func (v *Vote) Vote(ctx context.Context, pollID, requestUserID int, r io.Reader)
 		&status,
 	)
 	if err != nil {
+		// When two delegates cast the represented user's vote at the same time,
+		// both pass the ballot_check above and race to insert. The unique
+		// constraint (poll_id, represented_meeting_user_id) lets only one win;
+		// surface the loser as a clean double-vote instead of an internal error.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return MessageErrorf(ErrDoubleVote, "You can not vote again on poll %d", pollID)
+		}
 		return fmt.Errorf("insert ballot: %w", err)
 	}
 

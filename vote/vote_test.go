@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/OpenSlides/openslides-go/datastore/dsfetch"
@@ -1681,6 +1682,167 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 				},
 			)
 		})
+	}
+}
+
+// TestMultipleDelegatesCannotDoubleVote drives two delegates of the same
+// represented user voting at the same time. The unique constraint on
+// (poll_id, represented_meeting_user_id) lets only one ballot land; the other
+// must come back as a clean ErrDoubleVote, not an internal error.
+func TestMultipleDelegatesCannotDoubleVote(t *testing.T) {
+	t.Parallel()
+
+	if testing.Short() {
+		t.Skip("Postgres Test")
+	}
+
+	data := `
+	meeting/1/users_enable_vote_delegations: true
+
+	motion/5:
+		meeting_id: 1
+		sequential_number: 1
+		title: my motion
+		state_id: 1
+
+	list_of_speakers/7:
+		content_object_id: motion/5
+		sequential_number: 1
+		meeting_id: 1
+
+	group/40:
+		name: delegates
+		meeting_id: 1
+	group/41:
+		name: voters
+		meeting_id: 1
+
+	user:
+		5:
+			username: admin
+			organization_management_level: superadmin
+		30:
+			username: tom
+			is_present_in_meeting_ids: [1]
+		40:
+			username: georg
+		50:
+			username: lisa
+			is_present_in_meeting_ids: [1]
+
+	meeting_user:
+		31:
+			user_id: 30
+			meeting_id: 1
+			group_ids: [41]
+		41:
+			user_id: 40
+			meeting_id: 1
+			group_ids: [40]
+			vote_delegated_to_ids: [31, 51]
+		51:
+			user_id: 50
+			meeting_id: 1
+			group_ids: [41]
+
+	poll_config_approval/77:
+		allow_abstain: true
+		onehundred_percent_base: valid
+
+	poll/5:
+		title: normal poll
+		config_id: poll_config_approval/77
+		visibility: open
+		sequential_number: 1
+		content_object_id: motion/5
+		meeting_id: 1
+		state: started
+		entitled_group_ids: [40]
+	`
+
+	ctx := t.Context()
+	pg, err := pgtest.NewPostgresTest(t)
+	if err != nil {
+		t.Fatalf("Error starting postgres: %v", err)
+	}
+	if err := pg.AddData(ctx, data); err != nil {
+		t.Fatalf("Insert data: %v", err)
+	}
+
+	// Each goroutine needs its own connection and flow; a single pgx
+	// connection is not safe for concurrent use.
+	newService := func() *vote.Vote {
+		voteFlow, err := pg.Flow()
+		if err != nil {
+			t.Fatalf("Error getting flow: %v", err)
+		}
+		conn, err := pg.Conn(ctx)
+		if err != nil {
+			t.Fatalf("Error getting connection: %v", err)
+		}
+		service, _, err := vote.New(environment.ForTests{}, voteFlow, conn)
+		if err != nil {
+			t.Fatalf("Error creating vote service: %v", err)
+		}
+		return service
+	}
+
+	serviceB := newService()
+	serviceC := newService()
+
+	body := `{"meeting_user_id": 41, "value":"Yes"}`
+	start := make(chan struct{})
+	errs := make([]error, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		<-start
+		errs[0] = serviceB.Vote(ctx, 5, 30, strings.NewReader(body))
+	}()
+	go func() {
+		defer wg.Done()
+		<-start
+		errs[1] = serviceC.Vote(ctx, 5, 50, strings.NewReader(body))
+	}()
+	close(start)
+	wg.Wait()
+
+	successes, doubleVotes := 0, 0
+	for _, e := range errs {
+		switch {
+		case e == nil:
+			successes++
+		case errors.Is(e, vote.ErrDoubleVote):
+			doubleVotes++
+		default:
+			t.Fatalf("Vote returned unexpected error: %v", e)
+		}
+	}
+	if successes != 1 || doubleVotes != 1 {
+		t.Fatalf("expected exactly one success and one double-vote, got %d success / %d double-vote", successes, doubleVotes)
+	}
+
+	// Exactly one ballot may exist for the represented meeting user.
+	queryFlow, err := pg.Flow()
+	if err != nil {
+		t.Fatalf("Error getting flow: %v", err)
+	}
+	ds := dsmodels.New(queryFlow)
+	q := ds.Poll(5)
+	q = q.Preload(q.BallotList())
+	poll, err := q.First(ctx)
+	if err != nil {
+		t.Fatalf("Error getting poll: %v", err)
+	}
+	ballots := 0
+	for _, ballot := range poll.BallotList {
+		if id, ok := ballot.RepresentedMeetingUserID.Value(); ok && id == 41 {
+			ballots++
+		}
+	}
+	if ballots != 1 {
+		t.Fatalf("expected exactly one ballot for the represented user, got %d", ballots)
 	}
 }
 
