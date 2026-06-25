@@ -1507,6 +1507,50 @@ func TestVoteDelegationAndGroup(t *testing.T) {
 		},
 
 		{
+			"Vote for other with multiple delegations",
+			`
+			user/30:
+				is_present_in_meeting_ids: [1]
+			user/50:
+				username: otherdelegate
+
+			meeting_user:
+				41:
+					group_ids: [40]
+					vote_delegated_to_ids: [31, 51]
+				51:
+					user_id: 50
+					meeting_id: 1
+					group_ids: [41]
+			`,
+			`{"meeting_user_id": 41, "value":"Yes"}`,
+
+			41,
+		},
+
+		{
+			"Vote for other delegated only to someone else",
+			`
+			user/30:
+				is_present_in_meeting_ids: [1]
+			user/50:
+				username: otherdelegate
+
+			meeting_user:
+				41:
+					group_ids: [40]
+					vote_delegated_to_ids: [51]
+				51:
+					user_id: 50
+					meeting_id: 1
+					group_ids: [41]
+			`,
+			`{"meeting_user_id": 41, "value":"Yes"}`,
+
+			0,
+		},
+
+		{
 			"Vote for other with delegation not activated",
 			`
 			meeting/1/users_enable_vote_delegations: false
