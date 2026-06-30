@@ -953,6 +953,7 @@ func (v *Vote) Vote(ctx context.Context, pollID, requestUserID int, r io.Reader)
 			SELECT $1, $2, $3, $4, $5
 			FROM poll_check p, ballot_check b
 			WHERE p.poll_status = 'POLL_VALID' AND b.ballot_status = 'BALLOT_OK'
+			ON CONFLICT (poll_id, represented_meeting_user_id) DO NOTHING
 			RETURNING id
 		)
 		SELECT
@@ -960,7 +961,10 @@ func (v *Vote) Vote(ctx context.Context, pollID, requestUserID int, r io.Reader)
 				WHEN i.id IS NOT NULL THEN 'VALID'
 				WHEN p.poll_status != 'POLL_VALID' THEN p.poll_status
 				WHEN b.ballot_status != 'BALLOT_OK' THEN b.ballot_status
-				ELSE 'UNKNOWN_ERROR'
+				-- Poll valid and ballot_check saw no prior ballot, yet nothing was
+				-- inserted: a concurrent vote won the ON CONFLICT race for this
+				-- represented_meeting_user_id, so the loser has effectively voted before.
+				ELSE 'USER_HAS_VOTED_BEFORE'
 			END as status
 		FROM poll_check p, ballot_check b
 		LEFT JOIN inserted i ON true;`
@@ -1098,12 +1102,12 @@ func allowedToVote(
 		return fmt.Errorf("fetching meeting/users_forbid_delegator_to_vote: %w", err)
 	}
 
-	delegation, err := ds.MeetingUser_VoteDelegatedToID(representedMeetingUserID).Value(ctx)
+	delegationIDs, err := ds.MeetingUser_VoteDelegatedToIDs(representedMeetingUserID).Value(ctx)
 	if err != nil {
-		return fmt.Errorf("fetching meeting_user/vote_delegated_to_id: %w", err)
+		return fmt.Errorf("fetching meeting_user/vote_delegated_to_ids: %w", err)
 	}
 
-	if delegationActivated && forbitDelegateToVote && !delegation.Null() && representedMeetingUserID == actingMeetingUserID {
+	if delegationActivated && forbitDelegateToVote && len(delegationIDs) > 0 && representedMeetingUserID == actingMeetingUserID {
 		return MessageError(ErrNotAllowed, "You have delegated your vote and therefore can not vote for your self")
 	}
 
@@ -1115,7 +1119,7 @@ func allowedToVote(
 		return MessageErrorf(ErrNotAllowed, "Vote delegation is not activated in meeting %d", poll.MeetingID)
 	}
 
-	if id, ok := delegation.Value(); !ok || id != actingMeetingUserID {
+	if !slices.Contains(delegationIDs, actingMeetingUserID) {
 		return MessageErrorf(ErrNotAllowed, "You can not vote for meeting user %d", representedMeetingUserID)
 	}
 
@@ -1322,7 +1326,7 @@ func Preload(ctx context.Context, flow flow.Getter, pollID int, meetingID int) e
 
 	q := ds.Poll(pollID)
 	q = q.Preload(q.EntitledGroupList().MeetingUserList().User())
-	q = q.Preload(q.EntitledGroupList().MeetingUserList().VoteDelegatedTo().User())
+	q = q.Preload(q.EntitledGroupList().MeetingUserList().VoteDelegatedToList().User())
 	poll, err := q.First(ctx)
 	if err != nil {
 		return fmt.Errorf("fetch preload data: %w", err)

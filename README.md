@@ -381,15 +381,20 @@ candidates.
 
 ## Delegation
 
-A user can delegate his voice to another user. This is only possible in a
-meeting, where `meeting/users_enable_vote_delegation` is set to true.
+A user can delegate their voice to other users. This is only possible in a
+meeting where `meeting/users_enable_vote_delegations` is set to true. The
+setting `meeting/users_vote_delegations_max_amount` (default `1`) limits how many
+users a single voice may be delegated to.
 
 The term `acting_user` means the user, that sends the request. The term
 `represented_user` is the user, for whom the acting user sends the vote.
 
-If `meeting/users_forbid_delegator_to_vote` is set to true, then only the user,
-where the voice was delegated can vote. If set to `false`, then the
-represented_user keeps the permission to vote for himself.
+Any one of the delegates may cast the represented user's vote; once that vote has
+been sent by one acting user, the remaining delegates can no longer cast it.
+
+If `meeting/users_forbid_delegator_to_vote` is set to true, then only the users
+the voice was delegated to can vote. If set to `false`, then the
+represented_user keeps the permission to vote.
 
 
 ## Vote Weight
