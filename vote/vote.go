@@ -953,6 +953,7 @@ func (v *Vote) Vote(ctx context.Context, pollID, requestUserID int, r io.Reader)
 			SELECT $1, $2, $3, $4, $5
 			FROM poll_check p, ballot_check b
 			WHERE p.poll_status = 'POLL_VALID' AND b.ballot_status = 'BALLOT_OK'
+			ON CONFLICT (poll_id, represented_meeting_user_id) DO NOTHING
 			RETURNING id
 		)
 		SELECT
@@ -960,7 +961,10 @@ func (v *Vote) Vote(ctx context.Context, pollID, requestUserID int, r io.Reader)
 				WHEN i.id IS NOT NULL THEN 'VALID'
 				WHEN p.poll_status != 'POLL_VALID' THEN p.poll_status
 				WHEN b.ballot_status != 'BALLOT_OK' THEN b.ballot_status
-				ELSE 'UNKNOWN_ERROR'
+				-- Poll valid and ballot_check saw no prior ballot, yet nothing was
+				-- inserted: a concurrent vote won the ON CONFLICT race for this
+				-- represented_meeting_user_id, so the loser has effectively voted before.
+				ELSE 'USER_HAS_VOTED_BEFORE'
 			END as status
 		FROM poll_check p, ballot_check b
 		LEFT JOIN inserted i ON true;`
@@ -970,14 +974,6 @@ func (v *Vote) Vote(ctx context.Context, pollID, requestUserID int, r io.Reader)
 		&status,
 	)
 	if err != nil {
-		// When two delegates cast the represented user's vote at the same time,
-		// both pass the ballot_check above and race to insert. The unique
-		// constraint (poll_id, represented_meeting_user_id) lets only one win;
-		// surface the loser as a clean double-vote instead of an internal error.
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return MessageErrorf(ErrDoubleVote, "You can not vote again on poll %d", pollID)
-		}
 		return fmt.Errorf("insert ballot: %w", err)
 	}
 
